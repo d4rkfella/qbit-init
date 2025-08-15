@@ -337,11 +337,15 @@ func runQBittorrent(ctx context.Context) error {
 		return fmt.Errorf("process exited unexpectedly: %w", err)
 	case <-ctx.Done():
 		log.Info("Received termination signal, shutting down")
-		syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM)
+		if err := syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM); err != nil {
+			log.Error("Failed to send SIGTERM", "pid", cmd.Process.Pid, "error", err)
+		}
 
 		select {
 		case <-time.After(30 * time.Second):
-			syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+			if err := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL); err != nil {
+				log.Error("Failed to send SIGKILL", "pid", cmd.Process.Pid, "error", err)
+			}
 			return fmt.Errorf("forced shutdown after timeout")
 		case err := <-done:
 			return err
